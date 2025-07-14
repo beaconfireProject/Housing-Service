@@ -30,8 +30,7 @@ public class FacilityReportServiceImpl implements FacilityReportService {
 
     @Override
     public List<FacilityReport> getFacilityReportsByHouseId(Long houseId) {
-        // TODO: implement logic to get reports for a house
-        return null;
+        return reportRepository.findByFacility_HouseId(houseId);
     }
 
     @Override
@@ -39,4 +38,5 @@ public class FacilityReportServiceImpl implements FacilityReportService {
         // TODO: implement logic to fetch report by ID
         return reportRepository.findById(reportId).orElse(null);
     }
+
 }

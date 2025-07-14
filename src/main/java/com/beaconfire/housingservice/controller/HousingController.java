@@ -1,11 +1,20 @@
 package com.beaconfire.housingservice.controller;
 
+import com.beaconfire.housingservice.dto.HouseDetailsResponse;
+import com.beaconfire.housingservice.dto.HouseSummaryResponse;
 import com.beaconfire.housingservice.service.*;
 import com.beaconfire.housingservice.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/housing")
@@ -28,9 +37,12 @@ public class HousingController {
 
     // 1. Get Assigned House (Employee)
     @GetMapping("/assigned")
+    @ResponseBody
     public House getAssignedHouse() {
-        // TODO: call houseService.getAssignedHouseForEmployee(authenticatedId)
-        return null;
+        // TODO: current blocked by employee service
+        Long fakeAuthenticatedEmployeeId = 15L;
+        System.out.println("reached");
+        return houseService.getAssignedHouseForEmployee(fakeAuthenticatedEmployeeId);
     }
 
     // 2. Submit Facility Report (Employee)
@@ -63,57 +75,72 @@ public class HousingController {
 
     // 6. Get All Houses (HR)
     @GetMapping
-    public List<House> getAllHouses() {
-        // TODO: houseService.getAllHouses()
-        return null;
+    public ResponseEntity<List<HouseSummaryResponse>> getAllHouses() {
+        return ResponseEntity.ok(houseService.getAllHousesSummary());
     }
 
     // 7. Get House Details by ID (HR)
     @GetMapping("/{houseId}")
-    public House getHouseDetails(@PathVariable Long houseId) {
-        // TODO: houseService.getHouseById(houseId)
-        return null;
+    public ResponseEntity<HouseDetailsResponse> getHouseDetails(@PathVariable Long houseId) {
+        return ResponseEntity.ok(houseService.getHouseDetailsById(houseId));
     }
 
     // 8. Create New House (HR)
     @PostMapping
-    public House createHouse(@RequestBody House house) {
-        // TODO: houseService.createHouse(house)
-        return null;
+    public ResponseEntity<Map<String, Object>> createHouse(@Valid @RequestBody House house) {
+        House savedHouse = houseService.createHouse(house);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("houseId", savedHouse.getId());
+        response.put("message", "House created successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     // 9. Delete House (HR)
     @DeleteMapping("/{houseId}")
-    public String deleteHouse(@PathVariable Long houseId) {
-        // TODO: houseService.deleteHouse(houseId)
-        return null;
+    public ResponseEntity<Map<String, String>> deleteHouse(@PathVariable Long houseId) {
+        houseService.deleteHouse(houseId);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "House deleted successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     // 10. Get Facility Reports for House (HR)
     @GetMapping("/{houseId}/facility-reports")
     public List<FacilityReport> getFacilityReportsForHouse(@PathVariable Long houseId) {
-        // TODO: facilityReportService.getReportsByHouse(houseId)
-        return null;
+        return facilityReportService.getFacilityReportsByHouseId(houseId);
     }
 
     // 11. HR Add Comment to Report
     @PostMapping("/facility-reports/{reportId}/comments")
-    public FacilityReportDetail addHRComment(@PathVariable Integer reportId, @RequestBody FacilityReportDetail detail) {
-        // TODO: facilityReportDetailService.addHRComment(reportId, detail)
-        return null;
+    public FacilityReportDetail addHRComment(@Valid @PathVariable Integer reportId,
+                                             @RequestBody FacilityReportDetail detail) {
+        return facilityReportDetailService.addHRComment(reportId.longValue(), detail);
     }
 
     // 12. HR Update Comment
     @PutMapping("/facility-reports/comments/{commentId}")
-    public String updateHRComment(@PathVariable Integer commentId, @RequestBody FacilityReportDetail detail) {
-        // TODO: facilityReportDetailService.updateHRComment(commentId, detail)
-        return null;
+    public ResponseEntity<Map<String, String>> updateHRComment(
+            @PathVariable Integer commentId,
+            @RequestBody Map<String, String> body) {
+
+        String newComment = body.get("description");
+
+        facilityReportDetailService.updateHRComment(commentId.longValue(), newComment);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Comment updated");
+        return ResponseEntity.ok(response);
     }
 
     // 13. Get Single Report (with pagination later)
     @GetMapping("/report/{reportId}")
-    public FacilityReport getFacilityReportById(@PathVariable Integer reportId) {
-        // TODO: facilityReportService.getReportById(reportId)
-        return null;
+    public Page<FacilityReportDetail> getFacilityReportDetailsByReportId(
+            @PathVariable Integer reportId,
+            Pageable pageable) {
+        return facilityReportDetailService.getFacilityReportDetailsByReportId(reportId.longValue(), pageable);
     }
 }
