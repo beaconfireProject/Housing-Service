@@ -1,17 +1,18 @@
 package com.beaconfire.housingservice.controller;
 
-import com.beaconfire.housingservice.dto.HouseDetailsResponse;
-import com.beaconfire.housingservice.dto.HouseSummaryResponse;
+import com.beaconfire.housingservice.dto.*;
+import com.beaconfire.housingservice.security.JwtUtil;
 import com.beaconfire.housingservice.service.*;
 import com.beaconfire.housingservice.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,63 +24,96 @@ public class HousingController {
     private final HouseService houseService;
     private final FacilityReportService facilityReportService;
     private final FacilityReportDetailService facilityReportDetailService;
+    private final JwtUtil jwtUtil;
 
     @Autowired
     public HousingController(
             HouseService houseService,
             FacilityReportService facilityReportService,
-            FacilityReportDetailService facilityReportDetailService
-    ) {
+            FacilityReportDetailService facilityReportDetailService,
+            JwtUtil jwtUtil){
         this.houseService = houseService;
         this.facilityReportService = facilityReportService;
         this.facilityReportDetailService = facilityReportDetailService;
+        this.jwtUtil = jwtUtil;
     }
 
     // 1. Get Assigned House (Employee)
     @GetMapping("/assigned")
-    @ResponseBody
-    public House getAssignedHouse() {
-        // TODO: current blocked by employee service
-        Long fakeAuthenticatedEmployeeId = 15L;
-        System.out.println("reached");
-        return houseService.getAssignedHouseForEmployee(fakeAuthenticatedEmployeeId);
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public AssignedHouseResponse getAssignedHouse(@RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+        System.out.println("CURRENT USER ID: " + userId);
+        return houseService.getAssignedHouseForEmployee(userId);
     }
 
     // 2. Submit Facility Report (Employee)
     @PostMapping("/facility-report")
-    public FacilityReport submitFacilityReport(@RequestBody FacilityReport report) {
-        // TODO: call facilityReportService.createFacilityReportForEmployee(report)
-        return null;
+    public FacilityReport submitFacilityReport(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
+            @RequestBody FacilityReportRequest request) {
+
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+
+        return facilityReportService.submitFacilityReport(userId, request);
     }
 
     // 3. Get Facility Reports (Employee)
     @GetMapping("/facility-report")
-    public List<FacilityReport> getFacilityReportsForEmployee() {
-        // TODO: call facilityReportService.getReportsByEmployeeHouse(employeeId)
-        return null;
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public List<FacilityReport> getFacilityReportsForEmployee(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+
+        return facilityReportService.getFacilityReportsForEmployeeHouse(userId);
     }
 
     // 4. Add Comment to Facility Report (Employee)
     @PostMapping("/facility-report/{reportId}/comment")
-    public FacilityReportDetail addEmployeeComment(@PathVariable Integer reportId, @RequestBody FacilityReportDetail detail) {
-        // TODO: facilityReportDetailService.addEmployeeComment(reportId, detail)
-        return null;
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<Map<String, String>> addEmployeeComment(
+            @PathVariable Long reportId,
+            @RequestBody FacilityReportDetail detail,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+
+        facilityReportDetailService.addEmployeeComment(reportId, detail, userId);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Comment added successfully");
+        return ResponseEntity.ok(response);
     }
 
     // 5. Update Own Comment (Employee)
     @PutMapping("/facility-report/comment/{commentId}")
-    public String updateEmployeeComment(@PathVariable Integer commentId, @RequestBody FacilityReportDetail detail) {
-        // TODO: facilityReportDetailService.updateEmployeeComment(commentId, detail)
-        return null;
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<Map<String, String>> updateEmployeeComment(
+            @PathVariable Long commentId,
+            @RequestBody FacilityReportDetail detail) {
+
+        String result = facilityReportDetailService.updateEmployeeComment(commentId, detail);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", result);
+
+        return ResponseEntity.ok(response);
     }
 
     // 6. Get All Houses (HR)
+    @PreAuthorize("hasRole('HR')")
     @GetMapping
     public ResponseEntity<List<HouseSummaryResponse>> getAllHouses() {
         return ResponseEntity.ok(houseService.getAllHousesSummary());
     }
 
     // 7. Get House Details by ID (HR)
+    @PreAuthorize("hasRole('HR')")
     @GetMapping("/{houseId}")
     public ResponseEntity<HouseDetailsResponse> getHouseDetails(@PathVariable Long houseId) {
         return ResponseEntity.ok(houseService.getHouseDetailsById(houseId));
@@ -87,6 +121,7 @@ public class HousingController {
 
     // 8. Create New House (HR)
     @PostMapping
+    @PreAuthorize("hasRole('HR')")
     public ResponseEntity<Map<String, Object>> createHouse(@Valid @RequestBody House house) {
         House savedHouse = houseService.createHouse(house);
 
@@ -99,6 +134,7 @@ public class HousingController {
 
     // 9. Delete House (HR)
     @DeleteMapping("/{houseId}")
+    @PreAuthorize("hasRole('HR')")
     public ResponseEntity<Map<String, String>> deleteHouse(@PathVariable Long houseId) {
         houseService.deleteHouse(houseId);
 
@@ -110,12 +146,14 @@ public class HousingController {
 
     // 10. Get Facility Reports for House (HR)
     @GetMapping("/{houseId}/facility-reports")
+    @PreAuthorize("hasRole('HR')")
     public List<FacilityReport> getFacilityReportsForHouse(@PathVariable Long houseId) {
         return facilityReportService.getFacilityReportsByHouseId(houseId);
     }
 
     // 11. HR Add Comment to Report
     @PostMapping("/facility-reports/{reportId}/comments")
+    @PreAuthorize("hasRole('HR')")
     public FacilityReportDetail addHRComment(@Valid @PathVariable Integer reportId,
                                              @RequestBody FacilityReportDetail detail) {
         return facilityReportDetailService.addHRComment(reportId.longValue(), detail);
@@ -123,6 +161,7 @@ public class HousingController {
 
     // 12. HR Update Comment
     @PutMapping("/facility-reports/comments/{commentId}")
+    @PreAuthorize("hasRole('HR')")
     public ResponseEntity<Map<String, String>> updateHRComment(
             @PathVariable Integer commentId,
             @RequestBody Map<String, String> body) {
@@ -138,9 +177,18 @@ public class HousingController {
 
     // 13. Get Single Report (with pagination later)
     @GetMapping("/report/{reportId}")
+    @PreAuthorize("hasRole('HR')")
     public Page<FacilityReportDetail> getFacilityReportDetailsByReportId(
             @PathVariable Integer reportId,
             Pageable pageable) {
         return facilityReportDetailService.getFacilityReportDetailsByReportId(reportId.longValue(), pageable);
+    }
+
+    // 14. Assign House to Employee (HR)
+    @PatchMapping("/assign-house")
+    @PreAuthorize("hasRole('HR')")
+    public ResponseEntity<String> assignHouseToEmployee(@RequestBody AssignHouseRequest request) {
+        houseService.assignHouseToEmployee(request.getEmployeeId(), request.getHouseId());
+        return ResponseEntity.ok("House assigned to employee successfully.");
     }
 }

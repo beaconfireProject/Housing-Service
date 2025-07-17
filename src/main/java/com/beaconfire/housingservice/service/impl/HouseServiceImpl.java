@@ -3,9 +3,9 @@ package com.beaconfire.housingservice.service.impl;
 import com.beaconfire.housingservice.dao.FacilityRepository;
 import com.beaconfire.housingservice.dao.HouseRepository;
 import com.beaconfire.housingservice.dao.LandlordRepository;
-import com.beaconfire.housingservice.dto.HouseDetailsResponse;
-import com.beaconfire.housingservice.dto.HouseSummaryResponse;
+import com.beaconfire.housingservice.dto.*;
 import com.beaconfire.housingservice.exception.ResourceNotFoundException;
+import com.beaconfire.housingservice.feign.EmployeeClient;
 import com.beaconfire.housingservice.model.Facility;
 import com.beaconfire.housingservice.model.House;
 import com.beaconfire.housingservice.model.Landlord;
@@ -20,24 +20,55 @@ public class HouseServiceImpl implements HouseService {
     private final HouseRepository houseRepository;
     private final LandlordRepository landlordRepository;
     private final FacilityRepository facilityRepository;
+    private final EmployeeClient employeeClient;
 
     public HouseServiceImpl(HouseRepository houseRepository,
                             LandlordRepository landlordRepository,
-                            FacilityRepository facilityRepository) {
+                            FacilityRepository facilityRepository,
+                            EmployeeClient employeeClient) {
         this.houseRepository = houseRepository;
         this.landlordRepository = landlordRepository;
         this.facilityRepository = facilityRepository;
+        this.employeeClient = employeeClient;
     }
 
     @Override
-    public House getAssignedHouseForEmployee(Long employeeId) {
-        // Hardcoded mapping for now
-        if (employeeId == 15L) {
-            House house = houseRepository.findById(2L).orElse(null);
-            System.out.println("Fetched House: " + house);
-            return house;
+    public AssignedHouseResponse getAssignedHouseForEmployee(String userId) {
+        // Get employee info by id
+        EmployeeResponse currentEmployee = employeeClient.getEmployeeByUserId(userId).getData();
+        System.out.println("currentEmployee: " + currentEmployee);
+        String houseIdStr = currentEmployee.getHouseId();
+        System.out.println("houseId: " + houseIdStr);
+        if (houseIdStr == null) return null;
+
+        Long houseId;
+        try {
+            houseId = Long.parseLong(houseIdStr);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid houseId format: " + houseIdStr);
         }
-        return null;
+
+        // Get house
+        House house = houseRepository.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House not found with ID: " + houseId));
+
+        // Get all employees in that house
+        List<EmployeeResponse> occupants = employeeClient.getEmployeesByHouseId(houseId).getData();
+
+        // Build occupant info list
+        List<AssignedHouseResponse.OccupantInfo> occupantInfos = new ArrayList<>();
+        for (EmployeeResponse emp : occupants) {
+            occupantInfos.add(AssignedHouseResponse.OccupantInfo.builder()
+                    .name(emp.getFirstName() + " " + emp.getLastName())
+                    .phone(emp.getCellPhone())
+                    .build());
+        }
+
+        return AssignedHouseResponse.builder()
+                .houseId(houseId)
+                .address(house.getAddress())
+                .occupants(occupantInfos)
+                .build();
     }
 
 
@@ -54,11 +85,21 @@ public class HouseServiceImpl implements HouseService {
 
             Landlord landlord = optionalLandlord.get();
 
+            int employeeCount = 0;
+            try {
+                EmployeeListResponseWrapper wrapper = employeeClient.getEmployeesByHouseId(house.getId());
+                if (wrapper != null && wrapper.getData() != null) {
+                    employeeCount = wrapper.getData().size();
+                }
+            } catch (Exception e) {
+                // Optional: log error
+                employeeCount = 0;
+            }
+
             responses.add(HouseSummaryResponse.builder()
                     .houseId(house.getId())
                     .address(house.getAddress())
-                    // TODO: change later when employee service not a block
-                    .numEmployees(0) // mock
+                    .numEmployees(employeeCount)
                     .landlord(HouseSummaryResponse.LandlordInfo.builder()
                             .firstName(landlord.getFirstName())
                             .lastName(landlord.getLastName())
@@ -107,6 +148,20 @@ public class HouseServiceImpl implements HouseService {
                 .employees(employees)
                 .facilities(facilityCounts)
                 .build();
+    }
+
+    @Override
+    public void assignHouseToEmployee(String employeeId, Long houseId) {
+        // Make sure house exists
+        houseRepository.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House not found"));
+
+        // Construct minimal request body to patch
+        Map<String, Object> patchBody = new HashMap<>();
+        patchBody.put("houseId", houseId.toString());
+
+        // Make PATCH request via Feign client
+        employeeClient.patchEmployee(employeeId, patchBody);
     }
 
 

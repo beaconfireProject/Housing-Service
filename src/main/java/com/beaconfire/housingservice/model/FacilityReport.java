@@ -17,13 +17,12 @@ public class FacilityReport {
     @Column(name = "ID")
     private Long id;
 
-    @NotNull
     @Column(name = "FacilityID", insertable = false, updatable = false)
     private Long facilityId;
 
     @NotNull
     @Column(name = "EmployeeID")
-    private Long employeeId;
+    private String employeeId;
 
     @NotBlank
     @Size(max = 100)

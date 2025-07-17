@@ -10,4 +10,6 @@ public interface FacilityReportDetailService {
     Page<FacilityReportDetail> getFacilityReportDetailsByReportId(Long reportId, Pageable pageable);
     FacilityReportDetail addHRComment(Long reportId, FacilityReportDetail detail);
     void updateHRComment(Long commentId, String newComment);
+    FacilityReportDetail addEmployeeComment(Long reportId, FacilityReportDetail detail, String userId);
+    String updateEmployeeComment(Long commentId, FacilityReportDetail newDetail);
 }
