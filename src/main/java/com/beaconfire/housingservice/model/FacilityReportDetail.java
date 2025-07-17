@@ -21,9 +21,8 @@ public class FacilityReportDetail {
     @Column(name = "FacilityReportID")
     private Long facilityReportId;
 
-    @NotNull
     @Column(name = "EmployeeID")
-    private Long employeeId;
+    private String employeeId;
 
     @NotNull
     @Column(name = "Comment", columnDefinition = "TEXT")
