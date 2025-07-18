@@ -12,4 +12,5 @@ public interface FacilityReportDetailService {
     void updateHRComment(Long commentId, String newComment);
     FacilityReportDetail addEmployeeComment(Long reportId, FacilityReportDetail detail, String userId);
     String updateEmployeeComment(Long commentId, FacilityReportDetail newDetail);
+    List<FacilityReportDetail> getAllCommentsForReport(Long reportId);
 }

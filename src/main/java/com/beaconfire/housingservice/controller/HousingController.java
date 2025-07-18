@@ -191,4 +191,23 @@ public class HousingController {
         houseService.assignHouseToEmployee(request.getEmployeeId(), request.getHouseId());
         return ResponseEntity.ok("House assigned to employee successfully.");
     }
+
+    // 15. Get List of Facilities
+    @GetMapping("/facilities")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<List<Facility>> getFacilitiesForAssignedHouse(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+        List<Facility> facilities = houseService.getFacilitiesForAssignedHouse(userId);
+        return ResponseEntity.ok(facilities);
+    }
+
+    @GetMapping("/facility-report/{reportId}/comments")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public List<FacilityReportDetail> getCommentsForFacilityReport(@PathVariable Long reportId) {
+        return facilityReportDetailService.getAllCommentsForReport(reportId);
+    }
+
 }

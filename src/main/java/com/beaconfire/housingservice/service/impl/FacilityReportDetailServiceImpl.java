@@ -122,5 +122,10 @@ public class FacilityReportDetailServiceImpl implements FacilityReportDetailServ
         return "Comment updated";
     }
 
+    @Override
+    public List<FacilityReportDetail> getAllCommentsForReport(Long reportId) {
+        return facilityReportDetailRepository.findByFacilityReportId(reportId);
+    }
+
 
 }
