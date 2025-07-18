@@ -10,7 +10,6 @@ import java.util.List;
 
 @Repository
 public interface FacilityReportDetailRepository extends JpaRepository<FacilityReportDetail, Long> {
-    Page<FacilityReportDetail> findByFacilityReportId(Long reportId, Pageable pageable);
+    List<FacilityReportDetail> findByFacilityReportIdOrderByCreateDateDesc(Long reportId);
     List<FacilityReportDetail> findByFacilityReportId(Long reportId);
-
 }

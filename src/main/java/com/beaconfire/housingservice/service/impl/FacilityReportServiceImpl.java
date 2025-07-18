@@ -2,17 +2,18 @@ package com.beaconfire.housingservice.service.impl;
 
 import com.beaconfire.housingservice.dao.FacilityReportRepository;
 import com.beaconfire.housingservice.dao.FacilityRepository;
-import com.beaconfire.housingservice.dto.EmployeeResponse;
-import com.beaconfire.housingservice.dto.EmployeeResponseWrapper;
-import com.beaconfire.housingservice.dto.FacilityReportRequest;
+import com.beaconfire.housingservice.dto.*;
 import com.beaconfire.housingservice.feign.EmployeeClient;
 import com.beaconfire.housingservice.model.Facility;
 import com.beaconfire.housingservice.model.FacilityReport;
 import com.beaconfire.housingservice.service.FacilityReportService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -80,6 +81,44 @@ public class FacilityReportServiceImpl implements FacilityReportService {
         return reportRepository.findById(reportId).orElse(null);
     }
 
+    @Override
+    public Page<FacilityReportDTO> getFacilityReportsByHouseId(Long houseId, Pageable pageable) {
+        Page<FacilityReport> reports = reportRepository.findByHouseIdNative(houseId, pageable);
+
+        return reports.map(report -> {
+            String reporterName = "Unknown";
+            try {
+                EmployeeResponseWrapper wrapper = employeeClient.getEmployeeByEmployeeId(report.getEmployeeId());
+                if (wrapper != null && wrapper.getData() != null) {
+                    EmployeeResponse data = wrapper.getData();
+                    reporterName = data.getFirstName() + " " + data.getLastName();
+                }
+            } catch (Exception e) {
+                System.out.println("Failed to get reporter name for employeeId");
+            }
+
+            Facility facility = report.getFacility();
+            FacilityDTO facilityDTO = FacilityDTO.builder()
+                    .type(facility.getType())
+                    .description(facility.getDescription())
+                    .quantity(facility.getQuantity())
+                    .build();
+
+            FacilityReportDTO dto = FacilityReportDTO.builder()
+                    .id(report.getId())
+                    .title(report.getTitle())
+                    .description(report.getDescription())
+                    .status(report.getStatus())
+                    .createDate(report.getCreateDate().toString())
+                    .reporterName(reporterName)
+                    .employeeId(report.getEmployeeId())
+                    .facility(facilityDTO)
+                    .build();
+
+            return dto;
+        });
+    }
+
     private Long getEmployeeHouseId(String employeeId) {
         EmployeeResponseWrapper wrapper = employeeClient.getEmployeeByUserId(employeeId);
 
@@ -93,6 +132,23 @@ public class FacilityReportServiceImpl implements FacilityReportService {
             throw new RuntimeException("Invalid houseId format: " + wrapper.getData().getHouseId());
         }
     }
+
+    @Override
+    public void updateFacilityReportStatus(Long reportId, String status) {
+        List<String> allowedStatuses = Arrays.asList("Open", "In Progress", "Closed");
+        if (!allowedStatuses.contains(status)) {
+            throw new IllegalArgumentException("Invalid status: " + status);
+        }
+
+        FacilityReport report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new RuntimeException("Facility Report not found"));
+
+        report.setStatus(status);
+        reportRepository.save(report);
+    }
+
+
+
 
 
 }

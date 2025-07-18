@@ -38,7 +38,7 @@ public class FacilityReport {
     @NotBlank
     @Size(max = 50)
     @Column(name = "Status")
-    private String status;
+    private String status = "Open";
 
     @ManyToOne
     @JoinColumn(name = "FacilityID", referencedColumnName = "ID")

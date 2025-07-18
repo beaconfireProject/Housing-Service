@@ -3,6 +3,7 @@ package com.beaconfire.housingservice.service.impl;
 import com.beaconfire.housingservice.dao.FacilityReportDetailRepository;
 import com.beaconfire.housingservice.dao.FacilityReportRepository;
 import com.beaconfire.housingservice.dto.EmployeeResponse;
+import com.beaconfire.housingservice.dto.FacilityReportCommentDTO;
 import com.beaconfire.housingservice.exception.ResourceNotFoundException;
 import com.beaconfire.housingservice.feign.EmployeeClient;
 import com.beaconfire.housingservice.model.FacilityReportDetail;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FacilityReportDetailServiceImpl implements FacilityReportDetailService {
@@ -36,9 +38,8 @@ public class FacilityReportDetailServiceImpl implements FacilityReportDetailServ
     }
 
 
-    @Override
-    public Page<FacilityReportDetail> getFacilityReportDetailsByReportId(Long reportId, Pageable pageable) {
-        return facilityReportDetailRepository.findByFacilityReportId(reportId, pageable);
+    public List<FacilityReportDetail> getFacilityReportDetailsByReportId(Long reportId) {
+        return facilityReportDetailRepository.findByFacilityReportIdOrderByCreateDateDesc(reportId);
     }
 
     @Override
@@ -70,13 +71,12 @@ public class FacilityReportDetailServiceImpl implements FacilityReportDetailServ
     }
 
     @Override
-    public void updateHRComment(Long commentId, String newComment) {
+    public void updateHRComment(Long commentId, String newComment){
         FacilityReportDetail detail = facilityReportDetailRepository.findById(commentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
 
         detail.setComment(newComment);
         detail.setLastModificationDate(LocalDateTime.now());
-
         facilityReportDetailRepository.save(detail);
     }
 
@@ -123,9 +123,20 @@ public class FacilityReportDetailServiceImpl implements FacilityReportDetailServ
     }
 
     @Override
-    public List<FacilityReportDetail> getAllCommentsForReport(Long reportId) {
-        return facilityReportDetailRepository.findByFacilityReportId(reportId);
+    public List<FacilityReportCommentDTO> getAllCommentsForReport(Long reportId) {
+        List<FacilityReportDetail> details = facilityReportDetailRepository.findByFacilityReportId(reportId);
+
+        return details.stream().map(detail -> {
+            FacilityReportCommentDTO dto = new FacilityReportCommentDTO();
+            dto.setId(detail.getId());
+            dto.setComment(detail.getComment());
+            dto.setCreatedBy(detail.getEmployeeId());
+            dto.setCreateDate(detail.getCreateDate());
+            dto.setLastModifiedDate(null);
+            return dto;
+        }).collect(Collectors.toList());
     }
+
 
 
 }
