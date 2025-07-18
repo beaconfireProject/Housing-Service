@@ -71,6 +71,26 @@ public class HouseServiceImpl implements HouseService {
                 .build();
     }
 
+    @Override
+    public List<Facility> getFacilitiesForAssignedHouse(String userId) {
+        EmployeeResponse employee = employeeClient.getEmployeeByUserId(userId).getData();
+        if (employee == null || employee.getHouseId() == null) {
+            throw new ResourceNotFoundException("Employee has no assigned house.");
+        }
+
+        Long houseId;
+        try {
+            houseId = Long.parseLong(employee.getHouseId());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid house ID format: " + employee.getHouseId());
+        }
+
+        return facilityRepository.findByHouseId(houseId);
+    }
+
+
+
+
 
     // HR Services
 
@@ -122,10 +142,28 @@ public class HouseServiceImpl implements HouseService {
         if (!optionalLandlord.isPresent()) return null;
         Landlord landlord = optionalLandlord.get();
 
-        // employees = mock empty list for now
-        // TODO: change later when employee service not a block
+        List<EmployeeResponse> employeeList = new ArrayList<>();
+        try {
+            EmployeeListResponseWrapper wrapper = employeeClient.getEmployeesByHouseId(houseId);
+            if (wrapper != null && wrapper.getData() != null) {
+                employeeList = wrapper.getData();
+            }
+        } catch (Exception e) {
+            // Optional: log error
+            employeeList = new ArrayList<>();
+        }
+
         List<HouseDetailsResponse.EmployeeSummary> employees = new ArrayList<>();
-        int numEmployees = 0;
+        for (EmployeeResponse emp : employeeList) {
+            employees.add(HouseDetailsResponse.EmployeeSummary.builder()
+                    .firstName(emp.getFirstName())
+                    .lastName(emp.getLastName())
+                    .email(emp.getEmail())
+                    .phone(emp.getCellPhone())
+                    .build());
+        }
+        int numEmployees = employees.size();
+
 
         // facilities
         List<Facility> facilities = facilityRepository.findByHouseId(houseId);

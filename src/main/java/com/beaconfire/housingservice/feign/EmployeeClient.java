@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.List;
 import java.util.Map;
 
 @FeignClient(name = "employee-service")
@@ -23,4 +22,7 @@ public interface EmployeeClient {
 
     @PatchMapping("/api/employees/{id}")
     void patchEmployee(@PathVariable("id") String employeeId, @RequestBody Map<String, Object> updates);
+
+    @GetMapping("/api/employees/{id}")
+    EmployeeResponseWrapper getEmployeeByEmployeeId(@PathVariable("id") String employeeId);
 }

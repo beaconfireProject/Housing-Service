@@ -12,11 +12,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 public class HousingServiceApplication {
 
     public static void main(String[] args) {
-        Dotenv dotenv = Dotenv.load(); // Load .env file
-
-        // Inject into Spring environment
-        System.setProperty("spring.datasource.username", dotenv.get("DB_USERNAME"));
-        System.setProperty("spring.datasource.password", dotenv.get("DB_PASSWORD"));
+        EnvLoader.init();
         SpringApplication.run(HousingServiceApplication.class, args);
     }
 

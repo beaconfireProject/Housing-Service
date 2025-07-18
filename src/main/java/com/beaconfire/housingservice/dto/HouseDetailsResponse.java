@@ -32,8 +32,9 @@ public class HouseDetailsResponse {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class EmployeeSummary {
-        private String name;
-        private String phone;
+        private String firstName;
+        private String lastName;
         private String email;
+        private String phone;
     }
 }

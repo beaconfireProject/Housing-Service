@@ -7,15 +7,15 @@ import com.beaconfire.housingservice.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/housing")
@@ -144,11 +144,13 @@ public class HousingController {
         return ResponseEntity.ok(response);
     }
 
-    // 10. Get Facility Reports for House (HR)
+    // 10. Get Facility Reports for House with Pagination (HR)
     @GetMapping("/{houseId}/facility-reports")
     @PreAuthorize("hasRole('HR')")
-    public List<FacilityReport> getFacilityReportsForHouse(@PathVariable Long houseId) {
-        return facilityReportService.getFacilityReportsByHouseId(houseId);
+    public Page<FacilityReportDTO> getFacilityReportsForHouse(
+            @PathVariable Long houseId,
+            @PageableDefault(size = 5, sort = "createDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        return facilityReportService.getFacilityReportsByHouseId(houseId, pageable);
     }
 
     // 11. HR Add Comment to Report
@@ -167,7 +169,6 @@ public class HousingController {
             @RequestBody Map<String, String> body) {
 
         String newComment = body.get("description");
-
         facilityReportDetailService.updateHRComment(commentId.longValue(), newComment);
 
         Map<String, String> response = new HashMap<>();
@@ -175,13 +176,12 @@ public class HousingController {
         return ResponseEntity.ok(response);
     }
 
-    // 13. Get Single Report (with pagination later)
-    @GetMapping("/report/{reportId}")
+    // 13. Get Comments for Report
+    @GetMapping("/facility-report/{reportId}")
     @PreAuthorize("hasRole('HR')")
-    public Page<FacilityReportDetail> getFacilityReportDetailsByReportId(
-            @PathVariable Integer reportId,
-            Pageable pageable) {
-        return facilityReportDetailService.getFacilityReportDetailsByReportId(reportId.longValue(), pageable);
+    public List<FacilityReportDetail> getFacilityReportDetailsByReportId(
+            @PathVariable Integer reportId) {
+        return facilityReportDetailService.getFacilityReportDetailsByReportId(reportId.longValue());
     }
 
     // 14. Assign House to Employee (HR)
@@ -191,4 +191,42 @@ public class HousingController {
         houseService.assignHouseToEmployee(request.getEmployeeId(), request.getHouseId());
         return ResponseEntity.ok("House assigned to employee successfully.");
     }
+
+    // 15. Get List of Facilities (Employee)
+    @GetMapping("/facilities")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<List<Facility>> getFacilitiesForAssignedHouse(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+
+        String token = authHeader.substring(7);
+        String userId = jwtUtil.extractUserId(token);
+        List<Facility> facilities = houseService.getFacilitiesForAssignedHouse(userId);
+        return ResponseEntity.ok(facilities);
+    }
+
+
+    // 16. Get List of Comments by Report (Employee)
+    @GetMapping("/facility-report/{reportId}/comments")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public List<FacilityReportCommentDTO> getCommentsForFacilityReport(@PathVariable Long reportId) {
+        return facilityReportDetailService.getAllCommentsForReport(reportId);
+    }
+
+    // 17. Change Report Status (HR)
+    @PutMapping("/facility-reports/{id}/status")
+    @PreAuthorize("hasRole('HR')")
+    public ResponseEntity<Map<String, String>> updateFacilityReportStatus(
+            @PathVariable("id") Long reportId,
+            @RequestBody Map<String, String> body
+    ) {
+        String newStatus = body.get("status");
+        try {
+            facilityReportService.updateFacilityReportStatus(reportId, newStatus);
+            return ResponseEntity.ok(Collections.singletonMap("message", "Status updated"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Collections.singletonMap("error", e.getMessage()));
+        }
+    }
+
 }
